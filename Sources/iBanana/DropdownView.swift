@@ -7,6 +7,8 @@ struct DropdownView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
 
+    @AppStorage(SettingsKey.maskValues) private var maskValues = SettingsKey.maskValues_default
+
     @State private var search = ""
     @State private var copiedID: UUID?
 
@@ -93,7 +95,7 @@ struct DropdownView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(entry.title).fontWeight(.medium)
-                    Text(entry.masked ? "••••••" : preview(entry.value))
+                    Text((maskValues && entry.masked) ? "••••••" : preview(entry.value))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()

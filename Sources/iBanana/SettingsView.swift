@@ -7,6 +7,7 @@ struct SettingsView: View {
 
     @AppStorage(SettingsKey.idleTimeout) private var idleTimeout = SettingsKey.idleTimeout_default
     @AppStorage(SettingsKey.clipboardClear) private var clipboardClear = SettingsKey.clipboardClear_default
+    @AppStorage(SettingsKey.maskValues) private var maskValues = SettingsKey.maskValues_default
 
     @State private var passphrase = ""
     @State private var status: String?
@@ -21,6 +22,10 @@ struct SettingsView: View {
                     Text("Never").tag(0.0)
                 }
                 .onChange(of: idleTimeout) { _, new in model.lock.idleTimeout = new }
+            }
+
+            Section("Display") {
+                Toggle("Mask values in list (••••••) until clicked", isOn: $maskValues)
             }
 
             Section("Clipboard") {

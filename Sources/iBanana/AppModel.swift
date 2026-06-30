@@ -6,14 +6,17 @@ import VaultCore
 enum SettingsKey {
     static let idleTimeout = "idleTimeoutSeconds"
     static let clipboardClear = "clipboardClearSeconds"
+    static let maskValues = "maskValuesInList"
 
     static var idleTimeout_default: Double { 300 }
     static var clipboardClear_default: Double { 30 }
+    static var maskValues_default: Bool { true }
 
     static func register() {
         UserDefaults.standard.register(defaults: [
             idleTimeout: idleTimeout_default,
             clipboardClear: clipboardClear_default,
+            maskValues: maskValues_default,
         ])
     }
     static var clipboardClearSeconds: TimeInterval {
