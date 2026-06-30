@@ -36,7 +36,7 @@ final class AppModel {
     init() {
         SettingsKey.register()
         let timeout = SettingsKey.idleTimeoutSeconds
-        let keyStore = KeychainKeyStore(reuseDuration: timeout)
+        let keyStore = KeychainKeyStore()
         let store = VaultStore(keyStore: keyStore)
         self.store = store
         self.lock = LockController(store: store, idleTimeout: timeout)

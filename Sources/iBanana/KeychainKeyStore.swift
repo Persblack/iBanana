@@ -22,14 +22,6 @@ enum KeychainError: Error {
 final class KeychainKeyStore: KeyStore, @unchecked Sendable {
     private let service = "com.ricoklatte.iBanana"
     private let account = "masterKey"
-    private let reuseDuration: TimeInterval
-
-    private let lock = NSLock()
-    private var authContext: LAContext?
-
-    init(reuseDuration: TimeInterval = 300) {
-        self.reuseDuration = reuseDuration
-    }
 
     func loadOrCreateMasterKey() async throws -> SymmetricKey {
         try await authenticate()
@@ -61,8 +53,13 @@ final class KeychainKeyStore: KeyStore, @unchecked Sendable {
     /// Biometrics only (no password fallback): faithful to "needs YOUR
     /// fingerprint, even if someone else sits at your unlocked Mac." If Touch ID
     /// is unavailable/failing, recovery is the passphrase import path.
+    ///
+    /// A fresh `LAContext` per call — and thus a Touch-ID prompt — on every
+    /// unlock. `unlock()` only runs from a locked state, so reusing a context
+    /// (`touchIDAuthenticationAllowableReuseDuration`) would let a reopen within
+    /// the reuse window silently bypass an idle auto-lock. No reuse = no bypass.
     private func authenticate() async throws {
-        let ctx = currentContext()
+        let ctx = LAContext()
         var policyError: NSError?
         guard ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &policyError) else {
             throw KeychainError.biometryUnavailable
@@ -76,18 +73,6 @@ final class KeychainKeyStore: KeyStore, @unchecked Sendable {
                 else { cont.resume(throwing: error ?? KeychainError.authFailed) }
             }
         }
-    }
-
-    /// One reused context so a success within `reuseDuration` skips re-prompting.
-    /// macOS invalidates biometric reuse on screen lock/sleep, so no explicit
-    /// reset is needed after the lock lifecycle fires.
-    private func currentContext() -> LAContext {
-        lock.lock(); defer { lock.unlock() }
-        if let ctx = authContext { return ctx }
-        let ctx = LAContext()
-        ctx.touchIDAuthenticationAllowableReuseDuration = reuseDuration
-        authContext = ctx
-        return ctx
     }
 
     // MARK: - Keychain (plain, device-local — no entitlement needed)
