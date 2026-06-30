@@ -40,10 +40,10 @@ final class AppModel {
     }
 
     /// Open the dropdown → ensure unlocked (prompts Touch ID if needed).
-    func onDropdownOpen() {
+    func onDropdownOpen() async {
         lock.idleTimeout = SettingsKey.idleTimeoutSeconds
         lock.noteActivity()
-        if store.isLocked { store.unlock() }
+        if store.isLocked { await store.unlock() }
     }
 
     func copy(_ entry: Entry) {

@@ -19,7 +19,7 @@ struct DropdownView: View {
         }
         .padding(10)
         .frame(width: 300)
-        .onAppear { model.onDropdownOpen() }
+        .task { await model.onDropdownOpen() }
     }
 
     // MARK: - Locked
@@ -31,7 +31,7 @@ struct DropdownView: View {
             if let err = model.store.lastError {
                 Text(err).font(.caption).foregroundStyle(.secondary)
             }
-            Button("Unlock") { model.store.unlock() }
+            Button("Unlock") { Task { await model.store.unlock() } }
                 .keyboardShortcut(.defaultAction)
             if model.store.state == .decryptError {
                 Button("Import from export…") { openWindow(id: "settings") }

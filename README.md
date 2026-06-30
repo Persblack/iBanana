@@ -15,11 +15,20 @@ swift run iBanana      # launch (menubar-only app)
 
 Requires macOS 14+, Swift 6.2 / Xcode 26+. No external dependencies.
 
-> **Touch ID / Keychain:** the biometric gate needs a code-signed app. Running
-> the raw `swift run` binary may not present the Touch-ID prompt or persist the
-> Keychain item correctly — open `Package.swift` in Xcode and run a signed build
-> for the full unlock flow. The crypto core (`VaultCore`) is fully exercised by
-> `swift test` without any of that.
+### Install as a menubar app
+
+```sh
+scripts/make-app.sh    # build release, wrap in iBanana.app, ad-hoc sign, install to /Applications
+open /Applications/iBanana.app
+```
+
+> **Touch ID:** the master key lives in a device-local Keychain item gated by an
+> explicit `LAContext` biometric prompt. This works with the ad-hoc signing the
+> script does — no Apple Developer account needed. The stronger
+> `.biometryCurrentSet` Secure-Enclave key-withholding from the design spec
+> requires the `keychain-access-groups` entitlement (paid dev-team signing); see
+> the note in `Sources/iBanana/KeychainKeyStore.swift`. The crypto core
+> (`VaultCore`) is fully exercised by `swift test` regardless.
 
 ## Layout
 

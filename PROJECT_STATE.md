@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 ## Current Phase / Sprint
-Core + UI implemented; crypto core unit-tested (13 tests green). Touch-ID/Keychain flow needs a signed Xcode build to exercise end-to-end.
+Implemented + installed as /Applications/iBanana.app (ad-hoc signed). Touch-ID unlock works via LAContext gate + plain device-local Keychain (no paid dev account needed). Crypto core unit-tested (13 tests green).
 
 ## Backlog
 | # | Story | Status | Owner role |

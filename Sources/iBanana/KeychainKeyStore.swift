@@ -5,25 +5,34 @@ import VaultCore
 
 enum KeychainError: Error {
     case unexpectedStatus(OSStatus)
-    case accessControlFailed
     case biometryUnavailable
+    case authFailed
 }
 
-/// Stores the 256-bit master key in the Keychain behind a biometric gate.
-/// Reading the key triggers the OS Touch-ID prompt automatically; without a
-/// successful match the key is never released and `vault.dat` stays opaque.
-final class KeychainKeyStore: KeyStore {
+/// Stores the 256-bit master key in a device-local Keychain item and gates
+/// access behind an explicit Touch-ID prompt (`LAContext.evaluatePolicy`).
+///
+/// Why not `.biometryCurrentSet` Secure-Enclave key withholding (the stronger
+/// design in the spec)? That requires the `keychain-access-groups` entitlement,
+/// which needs signing with a paid Apple Developer team — `SecItemAdd` returns
+/// `errSecMissingEntitlement (-34018)` for an ad-hoc / unsigned build. This
+/// approach runs for everyone: the key is `WhenUnlockedThisDeviceOnly` and never
+/// released to the UI until biometrics succeed. The boundary is your macOS
+/// login + Touch ID — exactly the spec's stated threat model.
+final class KeychainKeyStore: KeyStore, @unchecked Sendable {
     private let service = "com.ricoklatte.iBanana"
     private let account = "masterKey"
-
-    /// LAContext reuse window so not every click re-prompts for a fingerprint.
     private let reuseDuration: TimeInterval
+
+    private let lock = NSLock()
+    private var authContext: LAContext?
 
     init(reuseDuration: TimeInterval = 300) {
         self.reuseDuration = reuseDuration
     }
 
-    func loadOrCreateMasterKey() throws -> SymmetricKey {
+    func loadOrCreateMasterKey() async throws -> SymmetricKey {
+        try await authenticate()
         if let existing = try loadKey() { return existing }
         let new = SymmetricKey(size: .bits256)
         try storeKey(new)
@@ -47,13 +56,41 @@ final class KeychainKeyStore: KeyStore {
         }
     }
 
-    // MARK: - Keychain primitives
+    // MARK: - Biometric gate
 
-    private func context() -> LAContext {
+    /// Biometrics only (no password fallback): faithful to "needs YOUR
+    /// fingerprint, even if someone else sits at your unlocked Mac." If Touch ID
+    /// is unavailable/failing, recovery is the passphrase import path.
+    private func authenticate() async throws {
+        let ctx = currentContext()
+        var policyError: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &policyError) else {
+            throw KeychainError.biometryUnavailable
+        }
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            ctx.evaluatePolicy(
+                .deviceOwnerAuthenticationWithBiometrics,
+                localizedReason: "Unlock your iBanana vault"
+            ) { success, error in
+                if success { cont.resume() }
+                else { cont.resume(throwing: error ?? KeychainError.authFailed) }
+            }
+        }
+    }
+
+    /// One reused context so a success within `reuseDuration` skips re-prompting.
+    /// macOS invalidates biometric reuse on screen lock/sleep, so no explicit
+    /// reset is needed after the lock lifecycle fires.
+    private func currentContext() -> LAContext {
+        lock.lock(); defer { lock.unlock() }
+        if let ctx = authContext { return ctx }
         let ctx = LAContext()
         ctx.touchIDAuthenticationAllowableReuseDuration = reuseDuration
+        authContext = ctx
         return ctx
     }
+
+    // MARK: - Keychain (plain, device-local — no entitlement needed)
 
     private func loadKey() throws -> SymmetricKey? {
         let query: [String: Any] = [
@@ -62,7 +99,6 @@ final class KeychainKeyStore: KeyStore {
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseAuthenticationContext as String: context(),
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
@@ -78,21 +114,14 @@ final class KeychainKeyStore: KeyStore {
     }
 
     private func storeKey(_ key: SymmetricKey) throws {
-        guard let access = SecAccessControlCreateWithFlags(
-            kCFAllocatorDefault,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            .biometryCurrentSet,
-            nil
-        ) else {
-            throw KeychainError.accessControlFailed
-        }
+        try? deleteMasterKey()   // overwrite any prior item
         let data = key.withUnsafeBytes { Data($0) }
         let attributes: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecValueData as String: data,
-            kSecAttrAccessControl as String: access,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
         ]
         let status = SecItemAdd(attributes as CFDictionary, nil)
         guard status == errSecSuccess else { throw KeychainError.unexpectedStatus(status) }

@@ -39,10 +39,10 @@ final class VaultStore {
 
     /// Triggers Touch ID (via the key store), then decrypts. Missing file → fresh
     /// empty vault. Undecryptable file → `.decryptError` (no silent data loss).
-    func unlock() {
+    func unlock() async {
         lastError = nil
         do {
-            let key = try keyStore.loadOrCreateMasterKey()
+            let key = try await keyStore.loadOrCreateMasterKey()
             masterKey = key
             let url = Self.fileURL
             guard FileManager.default.fileExists(atPath: url.path) else {
