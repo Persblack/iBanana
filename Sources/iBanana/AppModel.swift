@@ -50,4 +50,22 @@ final class AppModel {
         Clipboard.copy(entry.value, clearAfter: SettingsKey.clipboardClearSeconds)
         lock.noteActivity()
     }
+
+    // Accessory (menubar-only) apps open windows behind everything and never
+    // focus. Flip to .regular + activate so Manage/Settings actually appear,
+    // and drop back to .accessory once the last one closes.
+    private var managedWindowCount = 0
+
+    func windowDidOpen() {
+        managedWindowCount += 1
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
+    func windowDidClose() {
+        managedWindowCount = max(0, managedWindowCount - 1)
+        if managedWindowCount == 0 {
+            NSApplication.shared.setActivationPolicy(.accessory)
+        }
+    }
 }

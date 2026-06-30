@@ -45,6 +45,8 @@ struct SettingsView: View {
         }
         .padding()
         .frame(width: 420)
+        .onAppear { model.windowDidOpen() }
+        .onDisappear { model.windowDidClose() }
     }
 
     private func exportVault() {

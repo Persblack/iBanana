@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import VaultCore
 
 /// The menubar dropdown: locked gate, or search + grouped entries.
@@ -34,7 +35,7 @@ struct DropdownView: View {
             Button("Unlock") { Task { await model.store.unlock() } }
                 .keyboardShortcut(.defaultAction)
             if model.store.state == .decryptError {
-                Button("Import from export…") { openWindow(id: "settings") }
+                Button("Import from export…") { show("settings") }
             }
         }
         .frame(maxWidth: .infinity)
@@ -72,10 +73,10 @@ struct DropdownView: View {
 
             Divider()
             HStack {
-                Button("+ New") { openWindow(id: "manage") }
+                Button("+ New") { show("manage") }
                 Spacer()
-                Button("Manage") { openWindow(id: "manage") }
-                Button("Settings") { openWindow(id: "settings") }
+                Button("Manage") { show("manage") }
+                Button("Settings") { show("settings") }
             }
             .font(.caption)
         }
@@ -125,5 +126,12 @@ struct DropdownView: View {
 
     private func preview(_ value: String) -> String {
         value.split(separator: "\n").first.map(String.init) ?? value
+    }
+
+    /// Open a managed window with the app brought to the foreground.
+    private func show(_ id: String) {
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        openWindow(id: id)
     }
 }

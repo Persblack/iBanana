@@ -37,6 +37,8 @@ struct ManageView: View {
             }
         }
         .frame(minWidth: 560, minHeight: 360)
+        .onAppear { model.windowDidOpen() }
+        .onDisappear { model.windowDidClose() }
     }
 
     @ViewBuilder
