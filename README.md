@@ -5,6 +5,20 @@ menubar banana → Touch-ID-gated dropdown → click an entry to copy it. Everyt
 is AES-GCM encrypted on disk; nothing leaves the device. No server, no account,
 no cloud.
 
+## Install (download)
+
+Grab `iBanana-x.y.z-macos.zip` from the [latest release](https://github.com/Persblack/iBanana/releases/latest),
+unzip, and move `iBanana.app` to `/Applications`. The build is **Apple Silicon
+(arm64)** and ad-hoc signed (no paid Apple Developer account), so Gatekeeper
+quarantines it on first launch. Clear the quarantine flag once:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/iBanana.app
+open /Applications/iBanana.app
+```
+
+Prefer not to trust a prebuilt binary? Build it yourself — it's a few seconds:
+
 ## Build & run
 
 ```sh
