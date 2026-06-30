@@ -1,0 +1,53 @@
+import SwiftUI
+import VaultCore
+
+/// Setting keys + defaults, shared by SettingsView (@AppStorage) and the
+/// non-View consumers (lock timeout, clipboard clear).
+enum SettingsKey {
+    static let idleTimeout = "idleTimeoutSeconds"
+    static let clipboardClear = "clipboardClearSeconds"
+
+    static var idleTimeout_default: Double { 300 }
+    static var clipboardClear_default: Double { 30 }
+
+    static func register() {
+        UserDefaults.standard.register(defaults: [
+            idleTimeout: idleTimeout_default,
+            clipboardClear: clipboardClear_default,
+        ])
+    }
+    static var clipboardClearSeconds: TimeInterval {
+        UserDefaults.standard.double(forKey: clipboardClear)
+    }
+    static var idleTimeoutSeconds: TimeInterval {
+        UserDefaults.standard.double(forKey: idleTimeout)
+    }
+}
+
+@MainActor
+@Observable
+final class AppModel {
+    let store: VaultStore
+    let lock: LockController
+
+    init() {
+        SettingsKey.register()
+        let timeout = SettingsKey.idleTimeoutSeconds
+        let keyStore = KeychainKeyStore(reuseDuration: timeout)
+        let store = VaultStore(keyStore: keyStore)
+        self.store = store
+        self.lock = LockController(store: store, idleTimeout: timeout)
+    }
+
+    /// Open the dropdown → ensure unlocked (prompts Touch ID if needed).
+    func onDropdownOpen() {
+        lock.idleTimeout = SettingsKey.idleTimeoutSeconds
+        lock.noteActivity()
+        if store.isLocked { store.unlock() }
+    }
+
+    func copy(_ entry: Entry) {
+        Clipboard.copy(entry.value, clearAfter: SettingsKey.clipboardClearSeconds)
+        lock.noteActivity()
+    }
+}
